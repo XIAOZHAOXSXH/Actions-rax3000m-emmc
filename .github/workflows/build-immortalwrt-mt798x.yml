@@ -107,10 +107,21 @@ jobs:
     - name: 设置是否使用 nx30pro eeprom
       if: env.USE_NX30PRO_EEPROM == 'true'
       run: |
-        mkdir openwrt/target/linux/mediatek/mt7981/base-files/lib/firmware
+        mkdir -p openwrt/target/linux/mediatek/mt7981/base-files/lib/firmware
         cp eeprom/nx30pro_eeprom.bin openwrt/target/linux/mediatek/mt7981/base-files/lib/firmware/MT7981_iPAiLNA_EEPROM.bin
         sed -i 's/caldata_extract_mmc/# caldata_extract_mmc/' openwrt/target/linux/mediatek/mt7981/base-files/lib/preinit/90_extract_caldata
-        sed -i 's#./files/mt7981-default-eeprom/MT7981_iPAiLNA_EEPROM.bin##' openwrt/package/mtk/drivers/mt_wifi/Makefile
+        awk '
+          BEGIN {inblk=0}
+          /^define KernelPackage\/mt_wifi\/install$/ {inblk=1}
+          inblk && /^endef$/ {
+            print "rm -f $(1)/lib/firmware/MT7981_iPAiLNA_EEPROM.bin"
+            inblk=0
+          }
+          {print}
+        ' openwrt/package/mtk/drivers/mt_wifi/Makefile > /tmp/mt_wifi.Makefile
+        mv /tmp/mt_wifi.Makefile openwrt/package/mtk/drivers/mt_wifi/Makefile
+
+        grep -n 'KernelPackage/mt_wifi/install\|MT7981_iPAiLNA_EEPROM.bin' openwrt/package/mtk/drivers/mt_wifi/Makefile
 
     - name: 设置 dts 闪存频率
       if: env.USE_52MHZ == 'true'
